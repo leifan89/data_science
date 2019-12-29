@@ -1,0 +1,61 @@
+---
+title: "Tooth Growth Data Analysis"
+author: "Lei Fan"
+date: "12/28/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+options(width=80)
+```
+
+## Overview
+
+This project looks at the Tooth Growth dataset, part of the R dataset package, and determines what effect the dose and delivery method of vitamin C has on tooth growth in guinea pigs, if any.
+
+## Experiment Setup
+
+60 guinea pigs were evenly divided into 6 groups of 10 guinea pigs each: 3 groups were given vitamin C as orange juice in doses of 0.5, 1, and 2 mg/day, respectively, and the remaining 3 groups were given vitamin C as ascorbic acid in doses of 0.5, 1, and 2 mg/day, respectively.
+
+## Data Analysis
+
+```{r boxplot, echo=FALSE}
+boxplot(len ~ supp + dose, ToothGrowth, xlab = "Delivery method and dosage", ylab = "Tooth Length", main="Tooth Growth in Guinea Pigs from Vitamin C")
+```
+
+It appears that higher doses of vitamin C is positively correlated with greater tooth growth, and that, at doses below 2 mg/day, orange juice promotes greater tooth growth than ascorbic acid.
+
+Let's look at the means and standard variations of tooth growth of each group:
+
+```{r summary}
+tbl_df(ToothGrowth) %>% group_by(supp, dose) %>% summarize(mean = mean(len), sd = sd(len))
+```
+
+Is it true that, on average, higher doses of vitamin C is positively correlated with greater tooth growth?
+
+```{r linear_model}
+summary(lm(len ~ dose, ToothGrowth))
+```
+
+We see a very small p-value (well below an alpha of 0.05), and a relatively strong R-squared value, indicating that there does seem to be a positive correlation between the two factors.
+
+Is orange juice more effective than ascorbic acid?
+
+At all doses (alpha = 0.05):
+
+```{r comp_all_doses}
+t.test(subset(ToothGrowth, supp=='OJ')$len, subset(ToothGrowth, supp=='VC')$len, alternative = "g", var.equal = FALSE)
+```
+
+We get a p-value of 0.03, thus we reject the null hypothesis in favor of the hypothesis that orange juice is generally more effective than ascorbic acid at promoting tooth growth.
+
+This is even more visible at lower doses:
+
+```{r comp_lower_doses}
+t.test(subset(ToothGrowth, supp=='OJ' & dose==0.5)$len, subset(ToothGrowth, supp=='VC' & dose==0.5)$len, alternative = "g", var.equal = FALSE)
+t.test(subset(ToothGrowth, supp=='OJ' & dose==1.0)$len, subset(ToothGrowth, supp=='VC' & dose==1.0)$len, alternative = "g", var.equal = FALSE)
+```
+
+The p-values are very small, thus we reject the null hypothesis in favor of the alternative hypothesis that orange juice is more effective than ascorbic acid at promoting tooth growth.
