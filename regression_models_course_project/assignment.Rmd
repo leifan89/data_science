@@ -56,7 +56,7 @@ cor(mtcars$mpg, mtcars)
 As we can see, `cyl`, `disp`, `hp`, and `wt` are all quite highly correlated with the MPG value. A model that includes those 4 regressors, as well as `am`, should perform better than just `am` alone. Let's see it, along with the VIFs, since we have so many regressors, some of which, intuitively, seem correlated (e.g. `cyl` and `hp`).
 
 ```{r multiple-regressors, echo=FALSE}
-fit_multi <- lm(formula = mpg ~ am + cyl + disp + hp + wt, data = mtcars)
+fit_multi <- lm(formula = mpg ~ am + wt + hp + cyl + disp, data = mtcars)
 summary(fit_multi)
 sqrt(vif(fit_multi))
 ```
@@ -83,4 +83,4 @@ anova(fit_am,
       lm(formula = mpg ~ ., data = mtcars))
 ```
 
-As the ANOVA result shows, the 3rd model (only `am`, `wt` and `hp`) is perhaps our fit; the other models cannot justify their inclusion of additional regressors at a loss of our previous DFs. Therefore we conclude that **cars with manual transmission gets ~2 more miles per gallon than cars with automatic transmission**.
+As the ANOVA result shows, the 3rd model (only `am`, `wt` and `hp`) is perhaps our fit; the other, more complicated models cannot justify their inclusion of additional regressors at a loss of our precious DFs and their adjusted R-squared value is probably artificially high. Therefore, we conclude that **cars with manual transmission gets ~2 more miles per gallon than cars with automatic transmission**.
