@@ -1,0 +1,86 @@
+---
+title: 'Regression Models Course Project: MT Cars Analysis'
+author: "Lei Fan"
+date: "1/29/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(car)
+```
+
+## Overview
+
+The following analysis studies the `mtcars` dataset, explores the relationship between the miles-per-gallon (MPG) and various other factors of the cars in the dataset, and attempts to answer the following two questions:
+
+* "Is an automatic or manual transmission better for MPG?"
+
+* "Quantify the MPG difference between automatic and manual transmissions."
+
+## Exploratory Analysis
+
+Looking at the average MPG value for cars with automatic transmission vs. manual transmission, it appears that we can reject the null hypothesis (that the two have the same average MPG) in favor of the alternative, that cars with automatic transmission have a lower average MPG than cars with manual transmission:
+
+```{r t-test, echo = FALSE}
+mtcars_auto <- subset(mtcars, mtcars$am == 0)
+mtcars_manual <- subset(mtcars, mtcars$am == 1)
+t.test(mtcars_auto$mpg, mtcars_manual$mpg, alternative = "less")
+```
+
+If only the transmission type was taken into account, it appears that, on average, cars with manual transmission get ~7.2 more miles per gallon than cars with automatic transmission (see slope of the `am` regressor below):
+
+```{r fit_am, echo = FALSE}
+fit_am <- lm(formula = mpg ~ am, data = mtcars)
+summary(fit_am)
+plot(mtcars$am, mtcars$mpg, pch = 16, cex = 2, col = rgb(0, 1, 1, 0.3), xlab="Transmission type (0 = Auto, 1 = Manual)", ylab = "Miles per gallon", main = "Cars' transmission type vs. MPG")
+abline(a = fit_am$coefficients[1], b = fit_am$coefficients[2], lwd = 3)
+```
+
+```{r plot-fit-am, echo=FALSE}
+par(mfrow=c(2,2))
+plot(fit_am)
+par(mfrow=c(1,1))
+```
+
+Although the `am` factor was clearly significant, and there's nothing particularly wrong with the model (no heteroscedasticity observed, the variance was roughly normally distributed, etc.), with an adjusted R-squared value of only 0.3385, this is a rather poor model.
+
+## Multiple Regressors
+
+We will attempt to find other regressors that may also contribute to determining MPG:
+
+```{r correlation}
+cor(mtcars$mpg, mtcars)
+```
+
+As we can see, `cyl`, `disp`, `hp`, and `wt` are all quite highly correlated with the MPG value. A model that includes those 4 regressors, as well as `am`, should perform better than just `am` alone. Let's see it, along with the VIFs, since we have so many regressors, some of which, intuitively, seem correlated (e.g. `cyl` and `hp`).
+
+```{r multiple-regressors, echo=FALSE}
+fit_multi <- lm(formula = mpg ~ am + cyl + disp + hp + wt, data = mtcars)
+summary(fit_multi)
+sqrt(vif(fit_multi))
+```
+
+The adjusted R-squared value is high (~83% of variation explained by model), but too many regressors are correlated with the others (especially `cyl` and `disp`). Let's try removing them from the model and look at the VIFs again.
+
+```{r am-wt-hp, echo=FALSE}
+fit_am_wt_hp <- lm(formula = mpg ~ am + wt + hp, data = mtcars)
+summary(fit_am_wt_hp)
+sqrt(vif(fit_am_wt_hp))
+par(mfrow=c(2,2))
+plot(fit_am_wt_hp)
+par(mfrow=c(1,1))
+```
+
+The model is pretty good at explaining the MPG (~82% variation explained) and has no significant issues (no heteroscedasticity observed, the variance was roughly normally distributed aside from a couple of outliers, no overly large VIFs). How does it compare to some other models?
+
+```{r anova, echo=FALSE}
+anova(fit_am,
+      lm(formula = mpg ~ am + wt, data = mtcars),
+      fit_am_wt_hp,
+      lm(formula = mpg ~ am + wt + hp + cyl, data = mtcars),
+      fit_multi,
+      lm(formula = mpg ~ ., data = mtcars))
+```
+
+As the ANOVA result shows, the 3rd model (only `am`, `wt` and `hp`) is perhaps our fit; the other models cannot justify their inclusion of additional regressors at a loss of our previous DFs. Therefore we conclude that **cars with manual transmission gets ~2 more miles per gallon than cars with automatic transmission**.
