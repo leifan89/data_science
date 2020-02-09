@@ -1,0 +1,97 @@
+---
+title: "Practical Machine Learning Course Project"
+author: "Lei Fan"
+date: "2/8/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+library(rattle)
+library(rpart)
+set.seed(12345)
+```
+
+## Overview
+
+As part of this project, we will train a ML model to classify if a wearable user's barbell lifts are done correctly or incorrectly based on accelerator data.
+
+The original data is available [here](http://groupware.les.inf.puc-rio.br/har).
+
+```{r loading-data}
+testing <- read.csv("pml-testing.csv")
+training <- read.csv("pml-training.csv")
+```
+
+## Cleaning the data
+
+The original data has both columns used for identification (e.g. "user_name"), columns almost entirely composed of NAs (e.g. "var_accel_forearm"), and columns whose values are almost identical (e.g. . These columns should be removed prior to training the model.
+
+```{r data-cleaning}
+na_columns <- sapply(training, function(col) { mean(is.na(col)) > 0.95 })
+train <- training[, !na_columns]
+nzv <- nearZeroVar(train)
+train <- subset(train, select = -c(nzv))
+train <- subset(train, select = -c(user_name, raw_timestamp_part_1, raw_timestamp_part_2, cvtd_timestamp, num_window, X))
+
+```
+
+## Validation set
+
+Given that the test dataset has no output, we need to create a validation data set to get an estimate of our model's accuracy from the training set.
+
+```{r validation-set}
+inTrain <- createDataPartition(train$classe, p = 0.7, list = FALSE)
+trainSet <- train[inTrain,]
+validateSet <- train[-inTrain,]
+```
+
+## Train the model
+
+We will attempt three models: decision tree, random forest, and GBM.
+
+### Decision Tree
+
+We'll first try training a regular decision tree on the training set, and get the accuracy of the model on the validation set.
+
+```{r rpart}
+model_rpart <- rpart(classe~., data = trainSet, method = "class")
+fancyRpartPlot(model_rpart)
+confusionMatrix(predict(model_rpart, validateSet, type = "class"), validateSet$classe)
+```
+
+With an accuracy of around 74%, this is not great, but a solid start.
+
+### Random Forest
+
+We'll then try a random forest model.
+
+```{r rf}
+model_rf <- train(classe~., data = trainSet, method = "rf", trControl = trainControl(method = "cv", number = 3))
+confusionMatrix(predict(model_rf, validateSet), validateSet$classe)
+```
+
+With an accuracy of over 99%, this is a very good model.
+
+### GBM
+
+Lastly we'll try a GBM.
+
+```{r gbm, results = 'hide'}
+model_gbm <- train(classe~., data = trainSet, method = "gbm", trControl = trainControl(method = "cv", number = 3))
+```
+```{r gbm-res}
+confusionMatrix(predict(model_gbm, validateSet), validateSet$classe)
+```
+
+The accuracy is only 96%, not as good as the random forest result.
+
+## Predictions on test set
+
+Given that the random forest model has the best result, we will use it to predict the classes of the test set.
+```{r predict}
+predict(model_rf, testing)
+```
+
+The estimated out-of-sample error should be around 1%.
