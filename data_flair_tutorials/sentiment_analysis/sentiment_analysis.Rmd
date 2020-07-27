@@ -1,0 +1,101 @@
+---
+title: "Sentiment Analysis"
+author: "Lei Fan"
+date: "7/26/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Sentiment Analysis in R
+
+This follows Data Flair's [tutorial](https://data-flair.training/blogs/data-science-r-sentiment-analysis-project/), with minor modifications.
+
+```{r load_libraries, include=FALSE}
+library(tidytext)
+library(janeaustenr)
+library(stringr)
+library(tidytext)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(reshape2)
+library(wordcloud)
+```
+
+## Sentiments of Words in Pride & Prejudice
+
+How many words in the book *Pride & Prejudice* have positive/negative sentiment, according to Bing's sentiment analysis?
+
+First, let's take a look at word count...
+
+```{r pp_word_count, message=FALSE}
+
+pp_words <- austen_books() %>% 
+              filter(book == 'Pride & Prejudice') %>% 
+              mutate(linenumber=row_number(), 
+                     chapter=cumsum(str_detect(text, 
+                                               regex('^chapter [\\dxlciv]', 
+                                                     ignore_case=TRUE)))) %>% 
+              unnest_tokens(word, text)
+
+pp_word_count <- pp_words %>% count(word, sort=TRUE)
+
+head(pp_word_count)
+
+```
+
+What about word count when filtered by positive and negative sentiments?
+
+```{r pp_sentiment, message=FALSE}
+
+sentiments <- get_sentiments('bing')
+
+pp_word_sentiments <- pp_word_count %>% inner_join(sentiments)
+
+head(pp_word_sentiments)
+
+```
+
+
+What is the sentiment per chapter?
+
+```{r pp_sentiment_per_chapter, message=FALSE}
+
+pp_chapter_sentiments <- pp_words %>% 
+                          inner_join(sentiments) %>% 
+                          count(index = chapter, sentiment) %>% 
+                          pivot_wider(names_from = sentiment, values_from = n, values_fill = 0) %>% 
+                          mutate(sentiment = positive - negative)
+
+pp_chapter_sentiments %>% ggplot(aes(index, sentiment)) + geom_bar(stat = 'identity', color = 'blue')
+
+```
+
+What are the most common words in the book, and what are their sentiments?
+
+```{r common_word_sentiments, message=FALSE}
+
+pp_word_sentiments %>% 
+  filter(n > quantile(n, 0.97)) %>% 
+  mutate(n = ifelse(sentiment == 'negative', -n, n)) %>% 
+  mutate(word=reorder(word, n)) %>% 
+  ggplot(aes(word, n, fill=sentiment)) + 
+    geom_col() + 
+    coord_flip() + 
+    ylab('Sentiment Score')
+
+```
+
+Let's see the same info in a word cloud.
+
+```{r wordcloud, message=FALSE}
+
+pp_word_sentiments %>% 
+  acast(word ~ sentiment, value.var='n', fill = 0) %>% 
+  comparison.cloud(colors=c('red', 'blue'), 
+                   max.words=100)
+
+```
